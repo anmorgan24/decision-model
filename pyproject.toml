@@ -1,0 +1,27 @@
+[project]
+name = "decision-model-tutorial"
+version = "0.2.0"
+description = "A minimal decision model on a transformer backbone, tracked in Comet and evaluated in Opik."
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.4",
+    "transformers>=5.0",
+    "peft>=0.13",
+    "datasets>=3.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+tracking = ["comet_ml>=3.50", "matplotlib>=3.8", "opik"]
+dev = ["pytest>=8.0"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "tests"]
+testpaths = ["tests"]

@@ -1,0 +1,13 @@
+# Optional: a frozen backbone with only the decision head trained.
+# Shows how much of each decision is already in the pretrained representation.
+run_name: linear_probe
+model_kind: decision_head
+backbone: Qwen/Qwen3-0.6B-Base
+lora_r: 0
+label_mode: soft
+shuffle_options: true
+epochs: 3
+batch_size: 4
+grad_accum: 4
+lr_head: 1.0e-3
+comet_project: decision-model

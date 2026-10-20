@@ -1,0 +1,13 @@
+# The decision model: Qwen3-0.6B-Base + LoRA + a decision head trained from scratch.
+run_name: decision_head
+model_kind: decision_head
+backbone: Qwen/Qwen3-0.6B-Base
+lora_r: 16
+label_mode: soft          # train on the benchmark's gold distributions
+shuffle_options: true
+epochs: 3
+batch_size: 4
+grad_accum: 4
+lr_backbone: 2.0e-4
+lr_head: 1.0e-3
+comet_project: decision-model
