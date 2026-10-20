@@ -54,19 +54,33 @@ python -m decision_model.references
 # 2. Zero-shot baseline: the logit readout with no fine-tuning
 python -m decision_model.evaluate --config configs/logit_readout.yaml --zero-shot --split val
 
-# 3. Train (each run is one Comet experiment)
-python -m decision_model.train configs/decision_head.yaml
-python -m decision_model.train configs/logit_readout.yaml
-python -m decision_model.train configs/logit_readout_full_vocab.yaml   # optional
-python -m decision_model.train configs/linear_probe.yaml               # optional
+# 3. Train (each run is one Comet experiment). Each step changes one thing:
+python -m decision_model.train configs/logit_readout_sft.yaml        # the common recipe: full vocabulary, hard labels
+python -m decision_model.train configs/logit_readout.yaml            # objective: answer tokens only, soft labels
+python -m decision_model.train configs/decision_head.yaml            # readout: a fresh decision head
+python -m decision_model.train configs/logit_readout_full_vocab.yaml # optional: full vocabulary, soft labels
+python -m decision_model.train configs/linear_probe.yaml             # optional: frozen backbone
 
-# 4. What packing saves
+# 4. Score each run on validation, then compare pairs with confidence intervals
+python -m decision_model.evaluate outputs/logit_readout_sft --split val
+python -m decision_model.evaluate outputs/logit_readout --split val
+python -m decision_model.evaluate outputs/decision_head --split val
+python -m decision_model.compare outputs/logit_readout_zero_shot outputs/logit_readout_sft --split val
+python -m decision_model.compare outputs/logit_readout_sft outputs/logit_readout --split val --by-type
+python -m decision_model.compare outputs/logit_readout outputs/decision_head --split val --by-type
+
+# 5. What packing saves
 python -m decision_model.bench_latency configs/decision_head.yaml
 
-# 5. Once every decision is made on validation, score test
+# 6. Once every decision is made on validation, score test
 python -m decision_model.evaluate outputs/decision_head --split test
 python -m decision_model.evaluate outputs/logit_readout --split test
+python -m decision_model.evaluate outputs/logit_readout_sft --split test
 ```
+
+`compare.py` runs a paired bootstrap over cases (a case's five answers are
+correlated, so cases are resampled, not decisions) and prints a 95% interval
+for each difference. "neither" means the interval includes zero.
 
 Override any config value from the command line, for example a quick run:
 `python -m decision_model.train configs/decision_head.yaml --set epochs=1 max_train_examples=64`.
@@ -99,6 +113,7 @@ src/decision_model/
   train.py          config-driven training
   evaluate.py       scoring a run or a zero-shot baseline
   bench_latency.py  packed versus one-sequence-per-question
+  compare.py        paired bootstrap comparison of two runs
 configs/            one YAML per run
 tests/              offline tests on tiny random Qwen3 models
 ```

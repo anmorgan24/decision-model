@@ -1,0 +1,14 @@
+# The common recipe: fine-tune the answer token against the whole vocabulary, on hard labels.
+# This is the baseline closest to how most open-source "Jev alternatives" are trained.
+run_name: logit_readout_sft
+model_kind: logit_readout
+backbone: Qwen/Qwen3-0.6B-Base
+lora_r: 16
+readout_loss: full_vocab
+label_mode: hard
+shuffle_options: true
+epochs: 3
+batch_size: 4
+grad_accum: 4
+lr_backbone: 2.0e-4
+comet_project: decision-model

@@ -40,6 +40,21 @@ def load_trained(run_dir: Path, cfg: TrainConfig, model) -> TemperatureScaler:
     return TemperatureScaler(json.loads((run_dir / "temperatures.json").read_text()))
 
 
+def save_predictions(path: Path, outputs, examples, temperatures: TemperatureScaler | None) -> None:
+    """Every decision's logits and gold, so runs can be compared case by case (see compare.py)."""
+    torch.save({
+        "logits": outputs.logits,
+        "calibrated_logits": temperatures.apply(outputs.logits, outputs.question_type) if temperatures else None,
+        "targets": outputs.targets,
+        "labels": outputs.labels,
+        "question_type": outputs.question_type,
+        "num_options": outputs.num_options,
+        "question_ids": outputs.question_ids,
+        "case_index": outputs.case_index,
+        "example_ids": [e.id for e in examples],
+    }, path)
+
+
 def print_overall(name: str, summary: dict) -> None:
     o = summary["overall"]
     print(f"{name:12} accuracy {o['accuracy']:.4f}  kl {o['kl']:.4f}  log_loss {o['log_loss']:.4f}  "
@@ -78,6 +93,7 @@ def main(argv: list[str] | None = None) -> None:
     if temperatures:
         results["calibrated"] = summarize(outputs, temperatures)
     (run_dir / f"results_{args.split}.json").write_text(json.dumps(results, indent=2))
+    save_predictions(run_dir / f"predictions_{args.split}.pt", outputs, examples, temperatures)
     for name, summary in results.items():
         print_overall(name, summary)
 

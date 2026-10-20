@@ -25,20 +25,22 @@ class Outputs:
     question_type: torch.Tensor  # (N,)
     num_options: torch.Tensor  # (N,)
     question_ids: list[str]  # "workflow/qid"
+    case_index: torch.Tensor | None = None  # (N,) position of each row's example in the input list
 
 
 def gold_outputs(examples: list[Example], max_options: int = 16) -> Outputs:
     """Targets and metadata for a set of examples, with no model and empty logits."""
     rows = []
-    for e in examples:
+    for i, e in enumerate(examples):
         for q in e.questions:
             target = list(e.gold.get(q.qid, ())) + [0.0] * (max_options - len(e.gold.get(q.qid, ())))
             rows.append((target, e.label.get(q.qid, -100), QUESTION_TYPE_CODES[q.type], q.num_options,
-                         f"{e.workflow}/{q.qid}".lstrip("/")))
-    targets, labels, qtype, n_opts, qids = zip(*rows)
+                         f"{e.workflow}/{q.qid}".lstrip("/"), i))
+    targets, labels, qtype, n_opts, qids, cases = zip(*rows)
     n_opts = torch.tensor(n_opts)
     logits = torch.zeros(len(rows), max_options).masked_fill(torch.arange(max_options)[None, :] >= n_opts[:, None], float("-inf"))
-    return Outputs(logits, torch.tensor(targets), torch.tensor(labels), torch.tensor(qtype), n_opts, list(qids))
+    return Outputs(logits, torch.tensor(targets), torch.tensor(labels), torch.tensor(qtype), n_opts, list(qids),
+                   torch.tensor(cases))
 
 
 @torch.no_grad()
@@ -50,6 +52,7 @@ def run_model(model, examples: list[Example], tokenizer, pad_id: int, batch_size
         chunk = examples[start:start + batch_size]
         batch = collate(chunk, [pack_example(e, tokenizer, max_state_tokens) for e in chunk], pad_id, max_options)
         logits = model(to_device(batch, device)).float().cpu()
+        batch["case_index"] = batch["question_batch_index"] + start
         parts.append((logits, batch))
     return Outputs(
         logits=torch.cat([p[0] for p in parts]),
@@ -58,6 +61,7 @@ def run_model(model, examples: list[Example], tokenizer, pad_id: int, batch_size
         question_type=torch.cat([p[1]["question_type"] for p in parts]),
         num_options=torch.cat([p[1]["num_options"] for p in parts]),
         question_ids=[q for p in parts for q in p[1]["question_ids"]],
+        case_index=torch.cat([p[1]["case_index"] for p in parts]),
     )
 
 
