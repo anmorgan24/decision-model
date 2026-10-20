@@ -4,7 +4,7 @@ import torch
 import torch.nn.functional as F
 
 from decision_model import DecisionHead, TemperatureScaler, decision_loss
-from decision_model.metrics import accuracy, accuracy_ties, brier, brier_soft, compute, ece, fit_temperature, kl, log_loss
+from decision_model.metrics import accuracy, accuracy_ties, brier, brier_label, compute, ece, fit_temperature, kl, log_loss
 from decision_model.packing import QUESTION_TYPE_CODES
 
 CHOICE, SCORE, NOUL = (QUESTION_TYPE_CODES[t] for t in ("choice", "score", "noul"))
@@ -101,8 +101,8 @@ def test_temperature_scaler_fits_one_temperature_per_type():
 def test_brier_variants():
     logits = torch.tensor([[50.0, 0.0, INF]])
     labels = torch.tensor([0])
-    assert brier(logits, torch.tensor([[1.0, 0.0, 0.0]]), labels) < 1e-6
-    assert math.isclose(brier_soft(logits, torch.tensor([[0.5, 0.5, 0.0]]), labels), 0.5, abs_tol=1e-6)
+    assert brier_label(logits, torch.tensor([[1.0, 0.0, 0.0]]), labels) < 1e-6
+    assert math.isclose(brier(logits, torch.tensor([[0.5, 0.5, 0.0]]), labels), 0.5, abs_tol=1e-6)
     assert set(compute(logits, torch.tensor([[1.0, 0.0, 0.0]]), labels)) >= {"accuracy", "kl", "brier", "ece", "log_loss"}
 
 
@@ -113,3 +113,13 @@ def test_temperature_fit_handles_masked_option_slots():
     labels = logits[:, :3].softmax(dim=1).multinomial(1).squeeze(1)
     t = fit_temperature(logits, F.one_hot(labels, 4).float())
     assert math.isfinite(t) and t > 0
+
+
+def test_tied_predictions_count_as_a_random_pick():
+    uniform = torch.zeros(3, 4).masked_fill(torch.tensor([[0, 0, 0, 0], [0, 0, 0, 1], [0, 0, 1, 1]]).bool(), INF)
+    labels = torch.tensor([0, 2, 1])
+    gold = F.one_hot(labels, 4).float()
+    expected = (1 / 4 + 1 / 3 + 1 / 2) / 3
+    assert math.isclose(accuracy(uniform, gold, labels), expected, abs_tol=1e-6)
+    confident = torch.tensor([[3.0, 0.0], [0.0, 3.0]])
+    assert accuracy(confident, torch.eye(2), torch.tensor([0, 0])) == 0.5  # no ties: plain accuracy

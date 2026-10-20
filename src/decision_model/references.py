@@ -1,6 +1,6 @@
 """Reference baselines that read nothing, and a check of our scorer against the benchmark.
 
-Prior:   for every case, predict each question's average gold distribution from train
+Prior:   for every case, predict each question's label frequencies from train
 Uniform: the same probability on every option
 
 The typed-decisions dataset card reports both on `test`. Reproducing those
@@ -26,13 +26,18 @@ CARD = {
 }
 
 
-def prior_outputs(train: list[Example], evaluate: list[Example], max_options: int = 16, eps: float = 1e-6) -> Outputs:
+def prior_outputs(train: list[Example], evaluate: list[Example], max_options: int = 16,
+                  from_labels: bool = True, eps: float = 1e-6) -> Outputs:
+    """from_labels=True counts gold labels, as the card does; False averages the soft gold distributions."""
     sums, counts = defaultdict(lambda: torch.zeros(max_options)), defaultdict(int)
     for e in train:
         for q in e.questions:
             if q.qid in e.gold:
                 key = f"{e.workflow}/{q.qid}".lstrip("/")
-                sums[key][: q.num_options] += torch.tensor(e.gold[q.qid])
+                if from_labels:
+                    sums[key][e.label[q.qid]] += 1
+                else:
+                    sums[key][: q.num_options] += torch.tensor(e.gold[q.qid])
                 counts[key] += 1
 
     outputs = gold_outputs(evaluate, max_options)
@@ -57,8 +62,7 @@ def main() -> None:
         ours = compute(outputs.logits, outputs.targets, outputs.labels)
         for metric, card_value in CARD[name].items():
             print(f"{name:10}{metric:12}{ours[metric]:9.3f}{card_value:9.3f}")
-        print(f"{name:10}{'acc (ties)':12}{ours['accuracy_ties']:9.3f}{'':>9}")
-        print(f"{name:10}{'brier_soft':12}{ours['brier_soft']:9.3f}{'':>9}")
+    print("\nECE is defined differently on the card, so it isn't expected to match.")
 
 
 if __name__ == "__main__":

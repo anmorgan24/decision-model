@@ -5,11 +5,13 @@ probabilities can be trusted:
 
   log_loss:  cross-entropy against the gold distribution (a proper scoring rule)
   kl:        KL divergence from the gold distribution to the prediction
-  brier:     squared error against the one-hot gold label, summed over options
-  brier_soft: squared error against the gold distribution, summed over options
+  brier:     squared error against the gold distribution, summed over options
+             (matches the typed-decisions card's per-decision Brier)
+  brier_label: squared error against the one-hot gold label, summed over options
   ece:       expected calibration error: group predictions by top-answer
              confidence (10 equal-width bins) and compare each group's average
-             confidence with its accuracy
+             confidence with its accuracy. Definitions vary between benchmarks,
+             so compare ECE only between models scored by this code.
 
 ECE alone can't tell a useful model from one that ignores its input: a model
 that always predicts the label frequencies is well calibrated and useless. Read
@@ -33,7 +35,16 @@ KL_EPS = 1e-6  # predicted probabilities are clamped here before taking logs
 
 
 def accuracy(logits, targets, labels) -> float:
-    return (logits.argmax(dim=1) == labels).float().mean().item()
+    """How often the top answer matches the gold label.
+
+    When several options tie for the top probability, the prediction counts as
+    a random pick among them, so a uniform prediction scores 1/K rather than
+    whatever the first option happens to be. Without ties this is plain accuracy.
+    """
+    probs = logits.softmax(dim=1)
+    top = probs >= probs.max(dim=1, keepdim=True).values - 1e-9
+    hit = top.gather(1, labels.clamp_min(0)[:, None]).squeeze(1).float()
+    return (hit / top.sum(dim=1)).mean().item()
 
 
 def accuracy_ties(logits, targets, labels) -> float:
@@ -54,12 +65,12 @@ def kl(logits, targets, labels) -> float:
 
 
 def brier(logits, targets, labels) -> float:
+    return ((logits.softmax(dim=1) - targets) ** 2).sum(dim=1).mean().item()
+
+
+def brier_label(logits, targets, labels) -> float:
     onehot = F.one_hot(labels, num_classes=logits.shape[1]).float()
     return ((logits.softmax(dim=1) - onehot) ** 2).sum(dim=1).mean().item()
-
-
-def brier_soft(logits, targets, labels) -> float:
-    return ((logits.softmax(dim=1) - targets) ** 2).sum(dim=1).mean().item()
 
 
 def reliability_bins(logits, labels, n_bins: int = 10) -> list[dict]:
@@ -100,7 +111,7 @@ METRICS = {
     "log_loss": log_loss,
     "kl": kl,
     "brier": brier,
-    "brier_soft": brier_soft,
+    "brier_label": brier_label,
     "ece": ece,
 }
 

@@ -68,7 +68,7 @@ def test_run_model_matches_gold_metadata(typed_examples, tokenizer):
 
 
 def test_prior_is_the_average_training_distribution(typed_examples):
-    prior = prior_outputs(typed_examples, typed_examples[:1], max_options=8)
+    prior = prior_outputs(typed_examples, typed_examples[:1], max_options=8, from_labels=False)
     action = prior.logits[0, :4].softmax(dim=0)
     expected = (torch.tensor(typed_examples[0].gold["action"]) + torch.tensor(typed_examples[1].gold["action"])) / 2
     assert torch.allclose(action, expected, atol=1e-4)
@@ -85,3 +85,11 @@ def test_latency_benchmark_counts_the_state_once_when_packed(typed_examples, tok
     assert result["questions_per_example"] == 5
     assert result["unpacked_tokens"] > result["packed_tokens"]  # unpacked repeats the state for every question
     assert result["packed_ms"] > 0 and result["unpacked_ms"] > 0
+
+
+def test_label_prior_counts_gold_labels(typed_examples):
+    prior = prior_outputs(typed_examples, typed_examples[:1], max_options=8)
+    outcome = prior.question_ids.index("agent_trace_observability/outcome")
+    probs = prior.logits[outcome, :4].softmax(dim=0)
+    # The two training cases are labeled "partial" (index 2) and "harmful" (index 1).
+    assert torch.allclose(probs, torch.tensor([0.0, 0.5, 0.5, 0.0]), atol=1e-4)

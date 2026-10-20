@@ -131,14 +131,17 @@ the fit replaces them with a large finite value.
 **Comet offline mode.** Offline experiments can't log artifacts, so the
 tracker falls back to logging the split file as an asset.
 
-## Not yet verified
+## Scorer check against the benchmark card
 
-- No run on the real backbone or dataset yet. This environment can't reach
-  Hugging Face, so tests use tiny random models and two hand-built rows shaped
-  like the benchmark. The first real run checks the dataset parser and
-  `references.py` checks the scorer.
-- The card's "per-decision Brier" isn't defined on the card. `references.py`
-  prints our two Brier variants next to the card's numbers to find the match.
+`python -m decision_model.references` scores two baselines that read nothing
+and compares them with the typed-decisions card:
+
+- **KL and Brier** use the card's definitions. Brier here is squared error
+  against the gold distribution, summed over options (`brier_label` is the
+  version against the one-hot label).
+- **Accuracy** counts a tied top prediction as a random pick among the tied
+  options, so a uniform prediction scores 1/K.
+- **ECE** is standard top-label ECE with 10 bins. The card computes ECE
+  differently, so compare ECE only between models scored by this code.
 - `KL_EPS` in `metrics.py` clamps predicted probabilities before taking logs.
-  The card's clamp value is unknown, which mostly affects models that put
-  near-zero probability on options, like Jev.
+  This mostly affects models that put near-zero probability on options.
