@@ -10,8 +10,15 @@ probabilities can be trusted:
   brier_label: squared error against the one-hot gold label, summed over options
   ece:       expected calibration error: group predictions by top-answer
              confidence (10 equal-width bins) and compare each group's average
-             confidence with its accuracy. Definitions vary between benchmarks,
-             so compare ECE only between models scored by this code.
+             confidence with how often that answer is right, measured as the gold
+             probability of the predicted answer. With one-hot gold this is
+             standard ECE. With soft gold it's the chance a fresh sample from the
+             labeler agrees, which is what a calibrated probability should mean.
+  ece_label: ECE against the single gold label instead. When the label is the
+             most likely answer of a soft gold distribution, this penalizes a
+             model for matching that distribution, so prefer `ece`.
+             Definitions vary between benchmarks; compare ECE only between
+             models scored by this code.
 
 ECE alone can't tell a useful model from one that ignores its input: a model
 that always predicts the label frequencies is well calibrated and useless. Read
@@ -73,10 +80,14 @@ def brier_label(logits, targets, labels) -> float:
     return ((logits.softmax(dim=1) - onehot) ** 2).sum(dim=1).mean().item()
 
 
-def reliability_bins(logits, labels, n_bins: int = 10) -> list[dict]:
-    """Per confidence bin: how many predictions, their average confidence, and their accuracy."""
+def reliability_bins(logits, targets, n_bins: int = 10) -> list[dict]:
+    """Per confidence bin: how many predictions, their average confidence, and how often they're right.
+
+    "Right" is the gold probability of the predicted answer: 1 or 0 for one-hot
+    gold, and the chance a labeler's sample agrees for soft gold.
+    """
     confidence, predicted = logits.softmax(dim=1).max(dim=1)
-    correct = (predicted == labels).float()
+    correct = targets.gather(1, predicted[:, None]).squeeze(1).float()
     edges = torch.linspace(0, 1, n_bins + 1)
     bins = []
     for lo, hi in zip(edges[:-1], edges[1:]):
@@ -92,9 +103,17 @@ def reliability_bins(logits, labels, n_bins: int = 10) -> list[dict]:
     return bins
 
 
+def _ece_from_bins(bins: list[dict], total: int) -> float:
+    return sum(b["count"] / total * abs(b["confidence"] - b["accuracy"]) for b in bins)
+
+
 def ece(logits, targets, labels, n_bins: int = 10) -> float:
-    total = len(labels)
-    return sum(b["count"] / total * abs(b["confidence"] - b["accuracy"]) for b in reliability_bins(logits, labels, n_bins))
+    return _ece_from_bins(reliability_bins(logits, targets, n_bins), len(labels))
+
+
+def ece_label(logits, targets, labels, n_bins: int = 10) -> float:
+    onehot = F.one_hot(labels, num_classes=logits.shape[1]).float()
+    return _ece_from_bins(reliability_bins(logits, onehot, n_bins), len(labels))
 
 
 def score_mae(logits, targets, labels) -> float:
@@ -113,6 +132,7 @@ METRICS = {
     "brier": brier,
     "brier_label": brier_label,
     "ece": ece,
+    "ece_label": ece_label,
 }
 
 

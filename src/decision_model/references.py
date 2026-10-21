@@ -62,7 +62,7 @@ def main() -> None:
         ours = compute(outputs.logits, outputs.targets, outputs.labels)
         for metric, card_value in CARD[name].items():
             print(f"{name:10}{metric:12}{ours[metric]:9.3f}{card_value:9.3f}")
-    print("\nECE is defined differently on the card, so it isn't expected to match.")
+    print("\nECE is defined differently on the card (and here it's measured against the soft gold), so it isn't expected to match.")
 
 
 if __name__ == "__main__":

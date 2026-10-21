@@ -104,7 +104,7 @@ def main(argv: list[str] | None = None) -> None:
             prefix = f"{args.split}" if name == "raw" else f"{args.split}_calibrated"
             tracker.log_summary(summary, prefix)
             logits = outputs.logits if name == "raw" else temperatures.apply(outputs.logits, outputs.question_type)
-            tracker.log_reliability_diagram(f"{prefix}/reliability", reliability_bins(logits, outputs.labels))
+            tracker.log_reliability_diagram(f"{prefix}/reliability", reliability_bins(logits, outputs.targets))
         tracker.end()
 
 

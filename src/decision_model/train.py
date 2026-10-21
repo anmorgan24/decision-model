@@ -176,7 +176,7 @@ def log_evaluation(tracker: Tracker, outputs, examples: list[Example], prefix: s
     summary = summarize(outputs, temperatures)
     tracker.log_summary(summary, prefix, step=step)
     logits = outputs.logits if temperatures is None else temperatures.apply(outputs.logits, outputs.question_type)
-    tracker.log_reliability_diagram(f"{prefix}/reliability", reliability_bins(logits, outputs.labels), step=step)
+    tracker.log_reliability_diagram(f"{prefix}/reliability", reliability_bins(logits, outputs.targets), step=step)
     if confusion:
         names = option_names(examples)
         predicted = logits.argmax(dim=1).tolist()

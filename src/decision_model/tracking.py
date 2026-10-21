@@ -66,7 +66,7 @@ class Tracker:
         ax.bar(centers, [b["accuracy"] for b in bins], width=0.09, alpha=0.8, label="accuracy")
         ax.plot([0, 1], [0, 1], linestyle="--", color="gray", label="perfect calibration")
         ax.set_xlabel("confidence of top answer")
-        ax.set_ylabel("accuracy")
+        ax.set_ylabel("how often the top answer is right")
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 1)
         ax.set_title(name)

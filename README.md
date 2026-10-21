@@ -157,7 +157,12 @@ and compares them with the typed-decisions card:
   version against the one-hot label).
 - **Accuracy** counts a tied top prediction as a random pick among the tied
   options, so a uniform prediction scores 1/K.
-- **ECE** is standard top-label ECE with 10 bins. The card computes ECE
-  differently, so compare ECE only between models scored by this code.
+- **ECE** uses 10 bins of top-answer confidence and compares each bin's
+  confidence with the gold probability of the predicted answer: the chance a
+  sample from the teacher agrees. With hard labels this is standard ECE. The
+  benchmark's labels are the teacher's most likely answer, so ECE against the
+  label alone (`ece_label`) makes a model that matches the teacher look
+  underconfident. The card computes ECE differently again, so compare ECE only
+  between models scored by this code.
 - `KL_EPS` in `metrics.py` clamps predicted probabilities before taking logs.
   This mostly affects models that put near-zero probability on options.

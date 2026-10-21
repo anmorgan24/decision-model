@@ -4,7 +4,7 @@ import torch
 import torch.nn.functional as F
 
 from decision_model import DecisionHead, TemperatureScaler, decision_loss
-from decision_model.metrics import accuracy, accuracy_ties, brier, brier_label, compute, ece, fit_temperature, kl, log_loss
+from decision_model.metrics import accuracy, accuracy_ties, brier, brier_label, compute, ece, ece_label, fit_temperature, kl, log_loss
 from decision_model.packing import QUESTION_TYPE_CODES
 
 CHOICE, SCORE, NOUL = (QUESTION_TYPE_CODES[t] for t in ("choice", "score", "noul"))
@@ -123,3 +123,20 @@ def test_tied_predictions_count_as_a_random_pick():
     assert math.isclose(accuracy(uniform, gold, labels), expected, abs_tol=1e-6)
     confident = torch.tensor([[3.0, 0.0], [0.0, 3.0]])
     assert accuracy(confident, torch.eye(2), torch.tensor([0, 0])) == 0.5  # no ties: plain accuracy
+
+
+def test_matching_a_soft_gold_distribution_is_calibrated_under_ece_but_not_ece_label():
+    # Gold is 0.7 / 0.3 on every case, and the label is always the 0.7 answer.
+    targets = torch.tensor([[0.7, 0.3]]).repeat(200, 1)
+    labels = torch.zeros(200, dtype=torch.long)
+    matching = targets.log()
+    assert ece(matching, targets, labels) < 1e-6  # a labeler's sample agrees 70% of the time, as predicted
+    assert abs(ece_label(matching, targets, labels) - 0.3) < 1e-6  # looks underconfident against the 0.7 label
+
+
+def test_ece_and_ece_label_agree_on_hard_labels():
+    torch.manual_seed(0)
+    logits = torch.randn(300, 4)
+    labels = torch.randint(0, 4, (300,))
+    targets = F.one_hot(labels, 4).float()
+    assert abs(ece(logits, targets, labels) - ece_label(logits, targets, labels)) < 1e-6

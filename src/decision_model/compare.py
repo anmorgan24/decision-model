@@ -19,7 +19,7 @@ import torch
 
 from .metrics import METRICS, TYPE_NAMES
 
-LOWER_IS_BETTER = {"log_loss", "kl", "brier", "brier_label", "ece"}
+LOWER_IS_BETTER = {"log_loss", "kl", "brier", "brier_label", "ece", "ece_label"}
 DEFAULT_METRICS = ["accuracy", "kl", "log_loss", "brier", "ece"]
 
 
