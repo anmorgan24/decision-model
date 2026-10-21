@@ -96,9 +96,14 @@ def resolve_device(name: str) -> torch.device:
 
 
 def resolve_dtype(name: str, device: torch.device) -> torch.dtype:
+    """bfloat16 only on GPUs with native support (compute capability 8.0 and up, such as A100s).
+
+    Older GPUs like the T4 report bfloat16 support through emulation, which is
+    slow, and its coarse rounding creates ties between answer probabilities.
+    """
     if name != "auto":
         return getattr(torch, name)
-    if device.type == "cuda" and torch.cuda.is_bf16_supported():
+    if device.type == "cuda" and torch.cuda.get_device_capability(device)[0] >= 8:
         return torch.bfloat16
     return torch.float32
 
