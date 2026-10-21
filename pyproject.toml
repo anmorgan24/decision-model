@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-tracking = ["comet_ml>=3.50", "matplotlib>=3.8", "opik"]
+tracking = ["comet_ml>=3.50", "matplotlib>=3.8", "opik>=2.2"]
 dev = ["pytest>=8.0"]
 
 [build-system]
