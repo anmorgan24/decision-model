@@ -12,3 +12,4 @@ batch_size: 4
 grad_accum: 4
 lr_backbone: 2.0e-4
 comet_project: decision-model
+gradient_checkpointing: true
