@@ -115,6 +115,7 @@ src/decision_model/
   bench_latency.py  packed versus one-sequence-per-question
   compare.py        paired bootstrap comparison of two runs
 configs/            one YAML per run
+scripts/            article figures (plot_attention_mask.py)
 tests/              offline tests on tiny random Qwen3 models
 ```
 
